@@ -88,27 +88,37 @@ else:
         for t in executar_query("SELECT nome, funcao FROM trabalhadores", retornar_dados=True):
             st.write(f"**{t[0]}** - {t[1]}")
 
-    # ALUNOS
+    # ALUNOS (Com listagem única e botão de exclusão)
     elif aba == "🎓 Alunos":
         st.title("🎓 Gestão de Alunos")
-        with st.expander("Matricular"):
-            n = st.text_input("Nome"); c = st.text_input("Curso"); ano = st.text_input("Ano Início")
-            d_adm = st.date_input("Data Admissão"); d_sai = st.date_input("Data Desligamento", value=None)
-            if st.button("Matricular"):
-                executar_query("INSERT INTO alunos (nome, curso, ano_inicio, data_adm, data_desligamento, status) VALUES (?,?,?,?,?,?,'Ativo')", (n, c, ano, str(d_adm), str(d_sai)))
+        
+        # Formulário de Cadastro
+        with st.expander("➕ Matricular Novo Aluno"):
+            n = st.text_input("Nome do Aluno")
+            c = st.text_input("Curso")
+            ano = st.text_input("Ano de Início")
+            d_adm = st.date_input("Data Admissão")
+            d_sai = st.date_input("Data Desligamento", value=None)
+            if st.button("Salvar Matrícula", type="primary"):
+                executar_query("INSERT INTO alunos (nome, curso, ano_inicio, data_adm, data_desligamento, status) VALUES (?,?,?,?,?,?,'Ativo')", 
+                               (n, c, ano, str(d_adm), str(d_sai)))
                 st.rerun()
-        for id_a, nome in executar_query("SELECT id, nome FROM alunos", retornar_dados=True):
-            st.write(f"👤 {nome}")
 
-    # CHAMADA
-    elif aba == "✅ Chamada":
-        st.title("✅ Registrar Presença")
-        data_a = st.date_input("Data da Aula")
-        tema = st.text_input("Tema Estudado")
-        for id_a, nome in executar_query("SELECT id, nome FROM alunos", retornar_dados=True):
-            col1, col2 = st.columns([3, 1])
-            col1.write(nome)
-            status = col2.radio("Status", ["Presente", "Falta"], key=f"s_{id_a}", horizontal=True)
-            if col2.button("Gravar", key=f"b_{id_a}"):
-                executar_query("INSERT INTO presenca_alunos (aluno_id, data_aula, tema_estudado, status) VALUES (?,?,?,?)", (id_a, str(data_a), tema, status))
-                st.rerun()
+        st.subheader("📋 Alunos Cadastrados")
+        # Listagem com botão de exclusão
+        alunos = executar_query("SELECT id, nome, curso FROM alunos", retornar_dados=True)
+        
+        # Usamos um set para evitar duplicidade visual caso haja registros idênticos no banco
+        exibidos = set()
+        
+        for id_a, nome, curso in alunos:
+            if nome not in exibidos:
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"👤 **{nome}** - {curso}")
+                
+                # Botão para excluir
+                if col2.button("🗑️ Excluir", key=f"del_{id_a}"):
+                    executar_query("DELETE FROM alunos WHERE id=?", (id_a,))
+                    st.rerun()
+                
+                exibidos.add(nome)
