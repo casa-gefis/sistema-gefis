@@ -93,4 +93,4 @@ else:
             col1.write(n)
             pres = col2.radio("Status", ["Presente", "Falta"], key=f"p_{id_a}", horizontal=True)
             if st.button(f"Salvar {n}"):
-                executar_query("INSERT INTO presenca (aluno_id, data, tema, status) VALUES (?,?,?,?)", (id_a, str(data), tema, pres)}
+                executar_query("INSERT INTO presenca (aluno_id, data, tema, status) VALUES (?,?,?,?)", (id_a, str(data), tema, pres))
