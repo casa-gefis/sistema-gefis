@@ -31,6 +31,7 @@ CAMINHO_LOGO = None
 if os.path.exists(DIRETORIO_ATUAL):
     arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
     for arquivo in arquivos_na_pasta:
+        # Se o arquivo começar com "logo" (independente se for LOGO, Logo, logo) e for imagem
         if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
             CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
             break
@@ -50,6 +51,7 @@ def executar_query(query, params=(), retornar_dados=False):
     return dados
 
 def verificar_login(usuario, senha):
+    # Cria a tabela de usuários caso ela suma na inicialização da nuvem
     executar_query('''
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,6 +60,7 @@ def verificar_login(usuario, senha):
         nivel TEXT NOT NULL
     )
     ''')
+    # Garante o cadastro do administrador padrão do sistema
     try:
         executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES ('eduardo', '12345', 'admin')")
     except sqlite3.IntegrityError:
@@ -160,7 +163,6 @@ else:
             funcao_trab = col2.text_input("Função / Cargo")
             tel_trab = col1.text_input("Telefone")
             end_trab = col2.text_input("Endereço")
-            arquivo_pdf = st.file_uploader("Anexar Termo em PDF", type=["pdf"])
                 
             if st.button("Salvar / Atualizar Integrante", type="primary"):
                 if id_edicao == 0:
