@@ -26,13 +26,15 @@ CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v9.db")
 PASTA_PDFS = os.path.join(DIRETORIO_ATUAL, "termos_pdf")
 os.makedirs(PASTA_PDFS, exist_ok=True)
 
-# DETECTOR DE LOGO
-if os.path.exists(os.path.join(DIRETORIO_ATUAL, "logo.png")):
-    CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, "logo.png")
-elif os.path.exists(os.path.join(DIRETORIO_ATUAL, "logo.jpg")):
-    CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, "logo.jpg")
-else:
-    CAMINHO_LOGO = None
+# DETECTOR INTELIGENTE DE LOGO (Ignora maiúsculas/minúsculas no GitHub)
+CAMINHO_LOGO = None
+if os.path.exists(DIRETORIO_ATUAL):
+    arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
+    for arquivo in arquivos_na_pasta:
+        # Se o arquivo começar com "logo" (independente se for LOGO, Logo, logo) e for imagem
+        if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
+            CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
+            break
 
 # ==========================================
 # FUNÇÕES DO BANCO DE DADOS
@@ -86,12 +88,12 @@ if 'logado' not in st.session_state:
     st.session_state.nivel = ""
 
 if not st.session_state.logado:
-    col1, col2, col3 = st.columns([1, 1.5, 1])
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         st.write("")
         st.write("")
         if CAMINHO_LOGO:
-            st.image(CAMINHO_LOGO, use_container_width=True)
+            st.image(CAMINHO_LOGO, width=280)
         st.markdown("<h2 style='text-align: center;'>Acesso ao Sistema</h2>", unsafe_allow_html=True)
         
         with st.form(key="form_login"):
@@ -147,7 +149,7 @@ else:
                     st.rerun()
 
         st.subheader("🔍 Histórico de Palestras")
-        registros = axes = executar_query("SELECT nome, tema, data_palestra, casa_origem FROM palestrantes ORDER BY id DESC", retornar_dados=True)
+        registros = executar_query("SELECT nome, tema, data_palestra, casa_origem FROM palestrantes ORDER BY id DESC", retornar_dados=True)
         if registros:
             st.table([{"Palestrante": r[0], "Tema": r[1], "Data": r[2], "Casa": r[3]} for r in registros])
 
@@ -199,7 +201,7 @@ else:
                 st.success("Matriculado!")
                 st.rerun()
 
-    # GERENCIAR USUÁRIOS (CORRIGIDO)
+    # GERENCIAR USUÁRIOS
     elif "⚙️ Gerenciar Usuários" in aba_selecionada:
         st.title("⚙️ Controle de Usuários e Senhas")
         
@@ -211,14 +213,11 @@ else:
             
             if botao_salvar:
                 if novo_usuario and nova_senha:
-                    # Verifica se o usuário já existe
                     existe = executar_query("SELECT id FROM usuarios WHERE usuario = ?", (novo_usuario,), retornar_dados=True)
                     if existe:
-                        # Se já existe, atualiza a senha e o nível dele de forma segura
                         executar_query("UPDATE usuarios SET senha = ?, nivel = ? WHERE usuario = ?", (nova_senha, novo_nivel, novo_usuario))
                         st.success(f"Senha do usuário '{novo_usuario}' alterada com sucesso!")
                     else:
-                        # Se for um nome inédito, faz o cadastro normal
                         executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES (?,?,?)", (novo_usuario, nova_senha, novo_nivel))
                         st.success(f"Novo usuário '{novo_usuario}' cadastrado!")
                     st.rerun()
