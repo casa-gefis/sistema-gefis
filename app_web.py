@@ -4,11 +4,25 @@ import streamlit as st
 from datetime import datetime
 
 # ==========================================
-# CONFIGURAÇÃO DA PÁGINA (Deve ser o primeiro comando)
+# LOCALIZAÇÃO E DETECTOR DA LOGO DA INSTITUIÇÃO
+# ==========================================
+DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
+
+CAMINHO_LOGO = None
+if os.path.exists(DIRETORIO_ATUAL):
+    arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
+    for arquivo in arquivos_na_pasta:
+        # Busca inteligente que ignora letras maiúsculas ou minúsculas no GitHub
+        if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
+            CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
+            break
+
+# ==========================================
+# CONFIGURAÇÃO DA PÁGINA (Puxando a logo como ícone do App)
 # ==========================================
 st.set_page_config(
     page_title="Sistema de Gestão Espírita",
-    page_icon="🏠",
+    page_icon=CAMINHO_LOGO if CAMINHO_LOGO else "🏠",
     layout="wide"
 )
 
@@ -20,21 +34,10 @@ try:
 except ImportError:
     pass
 
-# Caminhos de armazenamento na Nuvem do Streamlit
-DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
+# Caminhos de armazenamento no Servidor
 CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v9.db")
 PASTA_PDFS = os.path.join(DIRETORIO_ATUAL, "termos_pdf")
 os.makedirs(PASTA_PDFS, exist_ok=True)
-
-# DETECTOR INTELIGENTE DE LOGO (Ignora maiúsculas/minúsculas no GitHub)
-CAMINHO_LOGO = None
-if os.path.exists(DIRETORIO_ATUAL):
-    arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
-    for arquivo in arquivos_na_pasta:
-        # Se o arquivo começar com "logo" (independente se for LOGO, Logo, logo) e for imagem
-        if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
-            CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
-            break
 
 # ==========================================
 # FUNÇÕES DO BANCO DE DADOS
@@ -111,7 +114,7 @@ if not st.session_state.logado:
                 else:
                     st.error("Usuário ou senha incorretos!")
 else:
-    # --- MENU PRINCIPAL ---
+    # --- MENU PRINCIPAL (BARRA LATERAL) ---
     with st.sidebar:
         if CAMINHO_LOGO:
             st.image(CAMINHO_LOGO, width=150)
@@ -131,7 +134,7 @@ else:
             st.session_state.nivel = ""
             st.rerun()
 
-    # PALESTRANTES
+    # MÓDULO: PALESTRANTES
     if "🎙️ Palestrantes" in aba_selecionada:
         st.title("🎙️ Cadastro e Agenda de Palestrantes")
         with st.expander("📝 Agendar Nova Palestra", expanded=True):
@@ -153,7 +156,7 @@ else:
         if registros:
             st.table([{"Palestrante": r[0], "Tema": r[1], "Data": r[2], "Casa": r[3]} for r in registros])
 
-    # TRABALHADORES
+    # MÓDULO: TRABALHADORES
     elif "👥 Trabalhadores" in aba_selecionada:
         st.title("👥 Equipe de Trabalhadores")
         with st.expander("➕ Cadastrar Novo Integrante"):
@@ -190,7 +193,7 @@ else:
                     col_pdf.write("⚠️ Sem termo")
                 st.divider()
 
-    # ALUNOS
+    # MÓDULO: ALUNOS
     elif "🎓 Alunos / Faltas" in aba_selecionada:
         st.title("🎓 Gestão de Alunos")
         nome_aluno = st.text_input("Nome do Aluno")
@@ -201,7 +204,7 @@ else:
                 st.success("Matriculado!")
                 st.rerun()
 
-    # GERENCIAR USUÁRIOS
+    # MÓDULO: CONTROLE DE ACESSOS (SISTEMA DE SEGURANÇA CORRIGIDO)
     elif "⚙️ Gerenciar Usuários" in aba_selecionada:
         st.title("⚙️ Controle de Usuários e Senhas")
         
@@ -228,3 +231,16 @@ else:
         usuarios_lista = executar_query("SELECT usuario, nivel FROM usuarios", retornar_dados=True)
         if usuarios_lista:
             st.table([{"Usuário": u[0], "Nível de Acesso": u[1].upper()} for u in usuarios_lista])
+
+# ==========================================
+# PERSONALIZAÇÃO VISUAL: OCULTAR IDENTIDADE DO STREAMLIT
+# ==========================================
+estilo_ocultar_menu = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stHeader"] {background-color: rgba(0,0,0,0); text-shadow: none;}
+    </style>
+"""
+st.markdown(estilo_ocultar_menu, unsafe_allow_html=True)
