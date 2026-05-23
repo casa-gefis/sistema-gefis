@@ -1,3 +1,5 @@
 streamlit
 st-filesdb
 gdown
+google-auth
+google-auth-oauthlib
