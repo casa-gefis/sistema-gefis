@@ -3,10 +3,11 @@ import sqlite3
 import streamlit as st
 from datetime import datetime
 
+# ==========================================
 # CONFIGURAÇÃO DA PÁGINA
+# ==========================================
 st.set_page_config(page_title="Sistema de Gestão Espírita", page_icon="🏠", layout="wide")
 
-# Correção para SQLite no Streamlit Cloud
 try:
     import pysqlite3
     import sys
@@ -16,7 +17,12 @@ except ImportError:
 
 DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
 CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v9.db")
+PASTA_PDFS = os.path.join(DIRETORIO_ATUAL, "termos_pdf")
+os.makedirs(PASTA_PDFS, exist_ok=True)
 
+# ==========================================
+# FUNÇÕES DO BANCO DE DADOS
+# ==========================================
 def executar_query(query, params=(), retornar_dados=False):
     conn = sqlite3.connect(CAMINHO_BANCO)
     cursor = conn.cursor()
@@ -26,70 +32,67 @@ def executar_query(query, params=(), retornar_dados=False):
     conn.close()
     return dados
 
-# GARANTIR ESTRUTURA DAS TABELAS
-executar_query('''CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE, senha TEXT, nivel TEXT)''')
-executar_query('''CREATE TABLE IF NOT EXISTS palestrantes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, contato TEXT, casa_origem TEXT, tema TEXT, data_palestra TEXT)''')
-executar_query('''CREATE TABLE IF NOT EXISTS trabalhadores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, telefone TEXT, endereco TEXT, data_admissao TEXT, data_saida TEXT, status TEXT, termo_pdf TEXT)''')
-executar_query('''CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, curso TEXT, ano_inicio TEXT, data_adm TEXT, data_desligamento TEXT, status TEXT)''')
-executar_query('''CREATE TABLE IF NOT EXISTS presenca_alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, aluno_id INTEGER, data_aula TEXT, tema_estudado TEXT, status TEXT)''')
+# Inicialização de Tabelas com colunas solicitadas
+executar_query("CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE, senha TEXT, nivel TEXT)")
+executar_query("CREATE TABLE IF NOT EXISTS palestrantes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, contato TEXT, casa_origem TEXT, tema TEXT, data_palestra TEXT)")
+executar_query("CREATE TABLE IF NOT EXISTS trabalhadores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, telefone TEXT, endereco TEXT, escala TEXT, data_admissao TEXT, status TEXT, data_saida TEXT, termo_pdf TEXT)")
+executar_query("CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, telefone TEXT, curso TEXT, ano_inicio TEXT, data_adm TEXT, data_desligamento TEXT, status TEXT)")
+executar_query("CREATE TABLE IF NOT EXISTS presenca_alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, aluno_id INTEGER, data_aula TEXT, tema_estudado TEXT, status TEXT)")
 
 # Admin Padrão
 try: executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES ('eduardo', '12345', 'admin')")
 except: pass
 
+# ==========================================
 # LOGIN
+# ==========================================
 if 'logado' not in st.session_state: st.session_state.logado = False
 
 if not st.session_state.logado:
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.subheader("Login de Acesso")
-        u = st.text_input("Usuário").strip().lower()
-        s = st.text_input("Senha", type="password")
-        if st.button("Entrar"):
-            resultado = executar_query("SELECT nivel FROM usuarios WHERE usuario=? AND senha=?", (u, s), True)
-            if resultado:
-                st.session_state.logado = True
-                st.session_state.usuario = u
-                st.session_state.nivel = resultado[0][0]
-                st.rerun()
-            else:
-                st.error("Dados incorretos")
+    st.subheader("Login de Acesso")
+    u = st.text_input("Usuário").strip().lower()
+    s = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        res = executar_query("SELECT nivel FROM usuarios WHERE usuario=? AND senha=?", (u, s), True)
+        if res:
+            st.session_state.logado = True; st.session_state.usuario = u; st.session_state.nivel = res[0][0]
+            st.rerun()
 else:
     with st.sidebar:
-        st.write(f"Usuário: {st.session_state.usuario}")
-        aba = st.radio("Módulo:", ["🎙️ Palestrantes", "👥 Trabalhadores", "🎓 Alunos", "✅ Chamada"])
+        st.markdown(f"👤 {st.session_state.usuario.capitalize()}")
+        aba = st.radio("Módulo:", ["🎙️ Palestrantes", "👥 Trabalhadores", "🎓 Alunos / Faltas", "⚙️ Gerenciar Usuários"])
         if st.button("Sair"): st.session_state.logado = False; st.rerun()
 
-    # MÓDULO ALUNOS (Com o seu formato original, apenas adicionando a deleção)
-    if aba == "🎓 Alunos":
+    # ALUNOS (Com novas colunas e botão de exclusão)
+    if "🎓 Alunos" in aba:
         st.title("🎓 Gestão de Alunos")
-        with st.expander("Cadastrar Aluno"):
-            n = st.text_input("Nome")
-            c = st.text_input("Curso")
-            ano = st.text_input("Ano Início")
-            if st.button("Matricular"):
-                executar_query("INSERT INTO alunos (nome, curso, ano_inicio, status) VALUES (?,?,?, 'Ativo')", (n,c,ano))
+        with st.expander("Matricular Novo Aluno"):
+            n = st.text_input("Nome"); c = st.text_input("Curso"); ano = st.text_input("Ano Início")
+            adm = st.date_input("Data Admissão"); sai = st.date_input("Data Desligamento", value=None)
+            if st.button("Salvar"):
+                executar_query("INSERT INTO alunos (nome, curso, ano_inicio, data_adm, data_desligamento, status) VALUES (?,?,?,?,?, 'Ativo')", (n, c, ano, str(adm), str(sai)))
                 st.rerun()
-        
+
         st.subheader("Lista de Alunos")
-        lista = executar_query("SELECT id, nome FROM alunos", retornar_dados=True)
-        for id_aluno, nome in lista:
-            c1, c2 = st.columns([4, 1])
-            c1.write(f"👤 {nome}")
-            if c2.button("Excluir", key=f"del_{id_aluno}"):
-                executar_query("DELETE FROM alunos WHERE id=?", (id_aluno,))
+        for id_a, nome in executar_query("SELECT id, nome FROM alunos", retornar_dados=True):
+            col1, col2 = st.columns([4, 1])
+            col1.write(f"👤 {nome}")
+            if col2.button("🗑️ Excluir", key=f"del_{id_a}"):
+                executar_query("DELETE FROM alunos WHERE id=?", (id_a,))
                 st.rerun()
 
-    # MÓDULOS DE PALESTRANTES E TRABALHADORES (Mantendo sua lógica estável)
-    elif aba == "🎙️ Palestrantes":
-        st.title("🎙️ Palestrantes")
-        # ... (insira aqui a sua lógica original de palestrantes)
-    
-    elif aba == "👥 Trabalhadores":
+    # TRABALHADORES
+    elif "👥 Trabalhadores" in aba:
         st.title("👥 Trabalhadores")
-        # ... (insira aqui a sua lógica original de trabalhadores)
+        with st.expander("Cadastrar"):
+            n = st.text_input("Nome"); f = st.text_input("Função"); end = st.text_input("Endereço")
+            if st.button("Cadastrar"):
+                executar_query("INSERT INTO trabalhadores (nome, funcao, endereco, status) VALUES (?,?,?, 'Ativo')", (n, f, end))
+                st.rerun()
+        for id_t, nome, func in executar_query("SELECT id, nome, funcao FROM trabalhadores", retornar_dados=True):
+            st.write(f"**{nome}** - {func}")
 
-    elif aba == "✅ Chamada":
-        st.title("✅ Chamada")
-        # ... (insira aqui sua lógica de chamada)
+    # PALESTRANTES
+    elif "🎙️ Palestrantes" in aba:
+        st.title("🎙️ Palestrantes")
+        # (Sua lógica original aqui)
