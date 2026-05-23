@@ -147,7 +147,7 @@ else:
                     st.rerun()
 
         st.subheader("🔍 Histórico de Palestras")
-        registros = executar_query("SELECT nome, tema, data_palestra, casa_origem FROM palestrantes ORDER BY id DESC", retornar_dados=True)
+        registros = axes = executar_query("SELECT nome, tema, data_palestra, casa_origem FROM palestrantes ORDER BY id DESC", retornar_dados=True)
         if registros:
             st.table([{"Palestrante": r[0], "Tema": r[1], "Data": r[2], "Casa": r[3]} for r in registros])
 
@@ -199,14 +199,33 @@ else:
                 st.success("Matriculado!")
                 st.rerun()
 
-    # GERENCIAR USUÁRIOS
+    # GERENCIAR USUÁRIOS (CORRIGIDO)
     elif "⚙️ Gerenciar Usuários" in aba_selecionada:
-        st.title("⚙️ Painel de Controle de Usuários")
-        novo_usuario = st.text_input("Nome de Usuário").strip().lower()
-        nova_senha = st.text_input("Senha", type="password")
-        novo_nivel = st.selectbox("Nível", ["trabalhador", "admin"])
-        if st.button("Salvar Operador"):
-            if novo_usuario and nova_senha:
-                executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES (?,?,?)", (novo_usuario, nova_senha, novo_nivel))
-                st.success("Usuário Cadastrado!")
-                st.rerun()
+        st.title("⚙️ Controle de Usuários e Senhas")
+        
+        with st.form("form_usuarios"):
+            novo_usuario = st.text_input("Nome de Usuário (Login)").strip().lower()
+            nova_senha = st.text_input("Nova Senha", type="password")
+            novo_nivel = st.selectbox("Nível de Acesso", ["trabalhador", "admin"])
+            botao_salvar = st.form_submit_button("Salvar / Atualizar Usuário")
+            
+            if botao_salvar:
+                if novo_usuario and nova_senha:
+                    # Verifica se o usuário já existe
+                    existe = executar_query("SELECT id FROM usuarios WHERE usuario = ?", (novo_usuario,), retornar_dados=True)
+                    if existe:
+                        # Se já existe, atualiza a senha e o nível dele de forma segura
+                        executar_query("UPDATE usuarios SET senha = ?, nivel = ? WHERE usuario = ?", (nova_senha, novo_nivel, novo_usuario))
+                        st.success(f"Senha do usuário '{novo_usuario}' alterada com sucesso!")
+                    else:
+                        # Se for um nome inédito, faz o cadastro normal
+                        executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES (?,?,?)", (novo_usuario, nova_senha, novo_nivel))
+                        st.success(f"Novo usuário '{novo_usuario}' cadastrado!")
+                    st.rerun()
+                else:
+                    st.warning("Preencha o usuário e a senha!")
+                    
+        st.subheader("📋 Operadores Cadastrados")
+        usuarios_lista = executar_query("SELECT usuario, nivel FROM usuarios", retornar_dados=True)
+        if usuarios_lista:
+            st.table([{"Usuário": u[0], "Nível de Acesso": u[1].upper()} for u in usuarios_lista])
