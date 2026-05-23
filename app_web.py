@@ -12,41 +12,18 @@ CAMINHO_LOGO = None
 if os.path.exists(DIRETORIO_ATUAL):
     arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
     for arquivo in arquivos_na_pasta:
-        # Busca inteligente que ignora letras maiúsculas ou minúsculas no GitHub
         if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
             CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
             break
 
 # ==========================================
-# CONFIGURAÇÃO DA PÁGINA (Puxando a logo como ícone do App)
+# CONFIGURAÇÃO DA PÁGINA (Computador e Telas do Sistema)
 # ==========================================
 st.set_page_config(
     page_title="Sistema de Gestão Espírita",
     page_icon=CAMINHO_LOGO if CAMINHO_LOGO else "🏠",
     layout="wide"
 )
-
-# TRUQUE AVANÇADO PARA CELULARES: Injeta código para substituir o ícone mobile à força
-if CAMINHO_LOGO:
-    # Como o Streamlit roda em servidor, precisamos passar a imagem convertida ou usar um script
-    # Esse script procura todas as tags de ícone do navegador e substitui pelo favicon correto
-    script_icone_mobile = f"""
-        <script>
-            function alterarIcones() {{
-                var links = document.getElementsByTagName('link');
-                for (var i = 0; i < links.length; i++) {{
-                    if (links[i].rel.indexOf('icon') !== -1 || links[i].rel.indexOf('apple-touch-icon') !== -1) {{
-                        links[i].href = '{CAMINHO_LOGO}?v={datetime.now().strftime("%H%M%S")}';
-                    }}
-                }}
-            }}
-            // Executa ao carregar e monitora mudanças na página
-            alterarIcones();
-            setTimeout(alterarIcones, 1000);
-            setTimeout(alterarIcones, 3000);
-        </script>
-    """
-    st.markdown(script_icone_mobile, unsafe_allow_html=True)
 
 # Correção essencial para sistemas SQLite rodando no Linux do Streamlit Cloud
 try:
@@ -76,7 +53,6 @@ def executar_query(query, params=(), retornar_dados=False):
     return dados
 
 def verificar_login(usuario, senha):
-    # Cria a tabela de usuários caso ela suma na inicialização da nuvem
     executar_query('''
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +61,6 @@ def verificar_login(usuario, senha):
         nivel TEXT NOT NULL
     )
     ''')
-    # Garante o cadastro do administrador padrão do sistema
     try:
         executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES ('eduardo', '12345', 'admin')")
     except sqlite3.IntegrityError:
@@ -98,7 +73,7 @@ def verificar_login(usuario, senha):
     conn.close()
     return resultado[0] if resultado else None
 
-# Garante que as outras tabelas existam no banco na nuvem
+# Garante que as tabelas existam no banco na nuvem
 executar_query("CREATE TABLE IF NOT EXISTS palestrantes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, contato TEXT, casa_origem TEXT, tema TEXT, data_palestra TEXT)")
 executar_query("CREATE TABLE IF NOT EXISTS trabalhadores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, telefone TEXT, endereco TEXT, escala TEXT, data_admissao TEXT, status TEXT, data_saida TEXT, termo_pdf TEXT)")
 executar_query("CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, telefone TEXT, curso TEXT, ano_inicio TEXT, status TEXT)")
@@ -193,7 +168,7 @@ else:
                     if arquivo_pdf is not None:
                         nome_limpo = f"{nome_trab.replace(' ', '_')}.pdf"
                         caminho_salvar_pdf = os.path.join(PASTA_PDFS, nome_limpo)
-                        with open(caminho_salvar_pdf, "wb") as f:
+                        with open(caminge_salvar_pdf, "wb") as f:
                             f.write(arquivo_pdf.getbuffer())
                     
                     executar_query("INSERT INTO trabalhadores (nome, funcao, status, termo_pdf) VALUES (?,?,'Ativo',?)", (nome_trab, funcao_trab, caminho_salvar_pdf))
@@ -226,7 +201,7 @@ else:
                 st.success("Matriculado!")
                 st.rerun()
 
-    # MÓDULO: CONTROLE DE ACESSOS (SISTEMA DE SEGURANÇA CORRIGIDO)
+    # MÓDULO: CONTROLE DE ACESSOS
     elif "⚙️ Gerenciar Usuários" in aba_selecionada:
         st.title("⚙️ Controle de Usuários e Senhas")
         
