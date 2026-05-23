@@ -4,24 +4,11 @@ import streamlit as st
 from datetime import datetime
 
 # ==========================================
-# LOCALIZAÇÃO E DETECTOR DA LOGO DA INSTITUIÇÃO
-# ==========================================
-DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
-
-CAMINHO_LOGO = None
-if os.path.exists(DIRETORIO_ATUAL):
-    arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
-    for arquivo in arquivos_na_pasta:
-        if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
-            CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
-            break
-
-# ==========================================
-# CONFIGURAÇÃO DA PÁGINA (Computador e Telas do Sistema)
+# CONFIGURAÇÃO DA PÁGINA (Deve ser o primeiro comando)
 # ==========================================
 st.set_page_config(
     page_title="Sistema de Gestão Espírita",
-    page_icon=CAMINHO_LOGO if CAMINHO_LOGO else "🏠",
+    page_icon="🏠",
     layout="wide"
 )
 
@@ -33,10 +20,21 @@ try:
 except ImportError:
     pass
 
-# Caminhos de armazenamento no Servidor
+# Caminhos de armazenamento na Nuvem do Streamlit
+DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
 CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v9.db")
 PASTA_PDFS = os.path.join(DIRETORIO_ATUAL, "termos_pdf")
 os.makedirs(PASTA_PDFS, exist_ok=True)
+
+# DETECTOR INTELIGENTE DE LOGO (Ignora maiúsculas/minúsculas no GitHub)
+CAMINHO_LOGO = None
+if os.path.exists(DIRETORIO_ATUAL):
+    arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
+    for arquivo in arquivos_na_pasta:
+        # Se o arquivo começar com "logo" (independente se for LOGO, Logo, logo) e for imagem
+        if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
+            CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
+            break
 
 # ==========================================
 # FUNÇÕES DO BANCO DE DADOS
@@ -53,6 +51,7 @@ def executar_query(query, params=(), retornar_dados=False):
     return dados
 
 def verificar_login(usuario, senha):
+    # Cria a tabela de usuários caso ela suma na inicialização da nuvem
     executar_query('''
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +60,7 @@ def verificar_login(usuario, senha):
         nivel TEXT NOT NULL
     )
     ''')
+    # Garante o cadastro do administrador padrão do sistema
     try:
         executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES ('eduardo', '12345', 'admin')")
     except sqlite3.IntegrityError:
@@ -73,7 +73,7 @@ def verificar_login(usuario, senha):
     conn.close()
     return resultado[0] if resultado else None
 
-# Garante que as tabelas existam no banco na nuvem
+# Garante que as outras tabelas existam no banco na nuvem
 executar_query("CREATE TABLE IF NOT EXISTS palestrantes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, contato TEXT, casa_origem TEXT, tema TEXT, data_palestra TEXT)")
 executar_query("CREATE TABLE IF NOT EXISTS trabalhadores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, telefone TEXT, endereco TEXT, escala TEXT, data_admissao TEXT, status TEXT, data_saida TEXT, termo_pdf TEXT)")
 executar_query("CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, telefone TEXT, curso TEXT, ano_inicio TEXT, status TEXT)")
@@ -111,7 +111,7 @@ if not st.session_state.logado:
                 else:
                     st.error("Usuário ou senha incorretos!")
 else:
-    # --- MENU PRINCIPAL (BARRA LATERAL) ---
+    # --- MENU PRINCIPAL ---
     with st.sidebar:
         if CAMINHO_LOGO:
             st.image(CAMINHO_LOGO, width=150)
@@ -131,7 +131,7 @@ else:
             st.session_state.nivel = ""
             st.rerun()
 
-    # MÓDULO: PALESTRANTES
+    # PALESTRANTES
     if "🎙️ Palestrantes" in aba_selecionada:
         st.title("🎙️ Cadastro e Agenda de Palestrantes")
         with st.expander("📝 Agendar Nova Palestra", expanded=True):
@@ -153,7 +153,7 @@ else:
         if registros:
             st.table([{"Palestrante": r[0], "Tema": r[1], "Data": r[2], "Casa": r[3]} for r in registros])
 
-    # MÓDULO: TRABALHADORES
+    # TRABALHADORES
     elif "👥 Trabalhadores" in aba_selecionada:
         st.title("👥 Equipe de Trabalhadores")
         with st.expander("➕ Cadastrar Novo Integrante"):
@@ -190,7 +190,7 @@ else:
                     col_pdf.write("⚠️ Sem termo")
                 st.divider()
 
-    # MÓDULO: ALUNOS
+    # ALUNOS
     elif "🎓 Alunos / Faltas" in aba_selecionada:
         st.title("🎓 Gestão de Alunos")
         nome_aluno = st.text_input("Nome do Aluno")
@@ -201,7 +201,7 @@ else:
                 st.success("Matriculado!")
                 st.rerun()
 
-    # MÓDULO: CONTROLE DE ACESSOS
+    # GERENCIAR USUÁRIOS
     elif "⚙️ Gerenciar Usuários" in aba_selecionada:
         st.title("⚙️ Controle de Usuários e Senhas")
         
@@ -228,16 +228,3 @@ else:
         usuarios_lista = executar_query("SELECT usuario, nivel FROM usuarios", retornar_dados=True)
         if usuarios_lista:
             st.table([{"Usuário": u[0], "Nível de Acesso": u[1].upper()} for u in usuarios_lista])
-
-# ==========================================
-# PERSONALIZAÇÃO VISUAL: OCULTAR IDENTIDADE DO STREAMLIT
-# ==========================================
-estilo_ocultar_menu = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    [data-testid="stHeader"] {background-color: rgba(0,0,0,0); text-shadow: none;}
-    </style>
-"""
-st.markdown(estilo_ocultar_menu, unsafe_allow_html=True)
