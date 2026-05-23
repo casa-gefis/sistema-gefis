@@ -4,24 +4,11 @@ import streamlit as st
 from datetime import datetime
 
 # ==========================================
-# LOCALIZAÇÃO E DETECTOR DA LOGO DA INSTITUIÇÃO
-# ==========================================
-DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
-
-CAMINHO_LOGO = None
-if os.path.exists(DIRETORIO_ATUAL):
-    arquivos_na_pasta = os.listdir(DIRETORIO_ATUAL)
-    for arquivo in arquivos_na_pasta:
-        if arquivo.lower().startswith("logo") and arquivo.lower().endswith((".png", ".jpg", ".jpeg")):
-            CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, arquivo)
-            break
-
-# ==========================================
-# CONFIGURAÇÃO DA PÁGINA (Computador e Telas do Sistema)
+# CONFIGURAÇÃO DA PÁGINA (Deve ser o primeiro comando)
 # ==========================================
 st.set_page_config(
     page_title="Sistema de Gestão Espírita",
-    page_icon=CAMINHO_LOGO if CAMINHO_LOGO else "🏠",
+    page_icon="🏠",
     layout="wide"
 )
 
@@ -33,10 +20,19 @@ try:
 except ImportError:
     pass
 
-# Caminhos de armazenamento no Servidor
+# Caminhos de armazenamento na Nuvem do Streamlit
+DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
 CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v9.db")
 PASTA_PDFS = os.path.join(DIRETORIO_ATUAL, "termos_pdf")
 os.makedirs(PASTA_PDFS, exist_ok=True)
+
+# DETECTOR DE LOGO
+if os.path.exists(os.path.join(DIRETORIO_ATUAL, "logo.png")):
+    CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, "logo.png")
+elif os.path.exists(os.path.join(DIRETORIO_ATUAL, "logo.jpg")):
+    CAMINHO_LOGO = os.path.join(DIRETORIO_ATUAL, "logo.jpg")
+else:
+    CAMINHO_LOGO = None
 
 # ==========================================
 # FUNÇÕES DO BANCO DE DADOS
@@ -53,6 +49,7 @@ def executar_query(query, params=(), retornar_dados=False):
     return dados
 
 def verificar_login(usuario, senha):
+    # Cria a tabela de usuários caso ela suma na inicialização da nuvem
     executar_query('''
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +58,7 @@ def verificar_login(usuario, senha):
         nivel TEXT NOT NULL
     )
     ''')
+    # Garante o cadastro do administrador padrão do sistema
     try:
         executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES ('eduardo', '12345', 'admin')")
     except sqlite3.IntegrityError:
@@ -73,7 +71,7 @@ def verificar_login(usuario, senha):
     conn.close()
     return resultado[0] if resultado else None
 
-# Garante que as tabelas existam no banco na nuvem
+# Garante que as outras tabelas existam no banco na nuvem
 executar_query("CREATE TABLE IF NOT EXISTS palestrantes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, contato TEXT, casa_origem TEXT, tema TEXT, data_palestra TEXT)")
 executar_query("CREATE TABLE IF NOT EXISTS trabalhadores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, telefone TEXT, endereco TEXT, escala TEXT, data_admissao TEXT, status TEXT, data_saida TEXT, termo_pdf TEXT)")
 executar_query("CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, telefone TEXT, curso TEXT, ano_inicio TEXT, status TEXT)")
@@ -88,12 +86,12 @@ if 'logado' not in st.session_state:
     st.session_state.nivel = ""
 
 if not st.session_state.logado:
-    col1, col2, col3 = st.columns([1, 1.2, 1])
+    col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         st.write("")
         st.write("")
         if CAMINHO_LOGO:
-            st.image(CAMINHO_LOGO, width=280)
+            st.image(CAMINHO_LOGO, use_container_width=True)
         st.markdown("<h2 style='text-align: center;'>Acesso ao Sistema</h2>", unsafe_allow_html=True)
         
         with st.form(key="form_login"):
@@ -111,7 +109,7 @@ if not st.session_state.logado:
                 else:
                     st.error("Usuário ou senha incorretos!")
 else:
-    # --- MENU PRINCIPAL (BARRA LATERAL) ---
+    # --- MENU PRINCIPAL ---
     with st.sidebar:
         if CAMINHO_LOGO:
             st.image(CAMINHO_LOGO, width=150)
@@ -131,7 +129,7 @@ else:
             st.session_state.nivel = ""
             st.rerun()
 
-    # MÓDULO: PALESTRANTES
+    # PALESTRANTES
     if "🎙️ Palestrantes" in aba_selecionada:
         st.title("🎙️ Cadastro e Agenda de Palestrantes")
         with st.expander("📝 Agendar Nova Palestra", expanded=True):
@@ -149,11 +147,11 @@ else:
                     st.rerun()
 
         st.subheader("🔍 Histórico de Palestras")
-        registros = executar_query("SELECT nome, tema, data_palestra, casa_origem FROM palestrantes ORDER BY id DESC", retornar_dados=True)
+        registros = axes = executar_query("SELECT nome, tema, data_palestra, casa_origem FROM palestrantes ORDER BY id DESC", retornar_dados=True)
         if registros:
             st.table([{"Palestrante": r[0], "Tema": r[1], "Data": r[2], "Casa": r[3]} for r in registros])
 
-    # MÓDULO: TRABALHADORES
+    # TRABALHADORES
     elif "👥 Trabalhadores" in aba_selecionada:
         st.title("👥 Equipe de Trabalhadores")
         with st.expander("➕ Cadastrar Novo Integrante"):
@@ -168,7 +166,7 @@ else:
                     if arquivo_pdf is not None:
                         nome_limpo = f"{nome_trab.replace(' ', '_')}.pdf"
                         caminho_salvar_pdf = os.path.join(PASTA_PDFS, nome_limpo)
-                        with open(caminge_salvar_pdf, "wb") as f:
+                        with open(caminho_salvar_pdf, "wb") as f:
                             f.write(arquivo_pdf.getbuffer())
                     
                     executar_query("INSERT INTO trabalhadores (nome, funcao, status, termo_pdf) VALUES (?,?,'Ativo',?)", (nome_trab, funcao_trab, caminho_salvar_pdf))
@@ -190,7 +188,7 @@ else:
                     col_pdf.write("⚠️ Sem termo")
                 st.divider()
 
-    # MÓDULO: ALUNOS
+    # ALUNOS
     elif "🎓 Alunos / Faltas" in aba_selecionada:
         st.title("🎓 Gestão de Alunos")
         nome_aluno = st.text_input("Nome do Aluno")
@@ -201,7 +199,7 @@ else:
                 st.success("Matriculado!")
                 st.rerun()
 
-    # MÓDULO: CONTROLE DE ACESSOS
+    # GERENCIAR USUÁRIOS (CORRIGIDO)
     elif "⚙️ Gerenciar Usuários" in aba_selecionada:
         st.title("⚙️ Controle de Usuários e Senhas")
         
@@ -213,11 +211,14 @@ else:
             
             if botao_salvar:
                 if novo_usuario and nova_senha:
+                    # Verifica se o usuário já existe
                     existe = executar_query("SELECT id FROM usuarios WHERE usuario = ?", (novo_usuario,), retornar_dados=True)
                     if existe:
+                        # Se já existe, atualiza a senha e o nível dele de forma segura
                         executar_query("UPDATE usuarios SET senha = ?, nivel = ? WHERE usuario = ?", (nova_senha, novo_nivel, novo_usuario))
                         st.success(f"Senha do usuário '{novo_usuario}' alterada com sucesso!")
                     else:
+                        # Se for um nome inédito, faz o cadastro normal
                         executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES (?,?,?)", (novo_usuario, nova_senha, novo_nivel))
                         st.success(f"Novo usuário '{novo_usuario}' cadastrado!")
                     st.rerun()
@@ -228,16 +229,3 @@ else:
         usuarios_lista = executar_query("SELECT usuario, nivel FROM usuarios", retornar_dados=True)
         if usuarios_lista:
             st.table([{"Usuário": u[0], "Nível de Acesso": u[1].upper()} for u in usuarios_lista])
-
-# ==========================================
-# PERSONALIZAÇÃO VISUAL: OCULTAR IDENTIDADE DO STREAMLIT
-# ==========================================
-estilo_ocultar_menu = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    [data-testid="stHeader"] {background-color: rgba(0,0,0,0); text-shadow: none;}
-    </style>
-"""
-st.markdown(estilo_ocultar_menu, unsafe_allow_html=True)
