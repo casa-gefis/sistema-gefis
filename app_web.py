@@ -168,7 +168,7 @@ else:
                     if arquivo_pdf is not None:
                         nome_limpo = f"{nome_trab.replace(' ', '_')}.pdf"
                         caminho_salvar_pdf = os.path.join(PASTA_PDFS, nome_limpo)
-                        with open(caminho_salvar_pdf, "wb") as f: # Corrigido aqui
+                        with open(caminho_salvar_pdf, "wb") as f:
                             f.write(arquivo_pdf.getbuffer())
                     
                     executar_query("INSERT INTO trabalhadores (nome, funcao, status, termo_pdf) VALUES (?,?,'Ativo',?)", (nome_trab, funcao_trab, caminho_salvar_pdf))
