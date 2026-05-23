@@ -9,7 +9,7 @@ from datetime import datetime
 st.set_page_config(page_title="Sistema de Gestão Espírita", page_icon="🏠", layout="wide")
 
 DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
-CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v9.db")
+CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v10.db")
 
 def executar_query(query, params=(), retornar_dados=False):
     conn = sqlite3.connect(CAMINHO_BANCO)
