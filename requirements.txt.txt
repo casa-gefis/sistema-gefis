@@ -1,5 +1,2 @@
 streamlit
-st-filesdb
-gdown
-google-auth
-google-auth-oauthlib
+pysqlite3-binary
