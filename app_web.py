@@ -26,6 +26,28 @@ st.set_page_config(
     layout="wide"
 )
 
+# TRUQUE AVANÇADO PARA CELULARES: Injeta código para substituir o ícone mobile à força
+if CAMINHO_LOGO:
+    # Como o Streamlit roda em servidor, precisamos passar a imagem convertida ou usar um script
+    # Esse script procura todas as tags de ícone do navegador e substitui pelo favicon correto
+    script_icone_mobile = f"""
+        <script>
+            function alterarIcones() {{
+                var links = document.getElementsByTagName('link');
+                for (var i = 0; i < links.length; i++) {{
+                    if (links[i].rel.indexOf('icon') !== -1 || links[i].rel.indexOf('apple-touch-icon') !== -1) {{
+                        links[i].href = '{CAMINHO_LOGO}?v={datetime.now().strftime("%H%M%S")}';
+                    }}
+                }}
+            }}
+            // Executa ao carregar e monitora mudanças na página
+            alterarIcones();
+            setTimeout(alterarIcones, 1000);
+            setTimeout(alterarIcones, 3000);
+        </script>
+    """
+    st.markdown(script_icone_mobile, unsafe_allow_html=True)
+
 # Correção essencial para sistemas SQLite rodando no Linux do Streamlit Cloud
 try:
     import pysqlite3
