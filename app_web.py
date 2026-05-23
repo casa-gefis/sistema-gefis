@@ -1,98 +1,61 @@
-import os
-import sqlite3
 import streamlit as st
-from datetime import datetime
+import sqlite3
+import os
 
-# ==========================================
-# CONFIGURAÇÃO DA PÁGINA
-# ==========================================
-st.set_page_config(page_title="Sistema de Gestão Espírita", page_icon="🏠", layout="wide")
+# 1. CONEXÃO SEGURA
+DB_PATH = "casa_espirita.db"
 
-try:
-    import pysqlite3
-    import sys
-    sys.modules['sqlite3'] = pysqlite3
-except ImportError:
-    pass
-
-DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
-CAMINHO_BANCO = os.path.join(DIRETORIO_ATUAL, "casa_espirita_v9.db")
-PASTA_PDFS = os.path.join(DIRETORIO_ATUAL, "termos_pdf")
-os.makedirs(PASTA_PDFS, exist_ok=True)
-
-# ==========================================
-# FUNÇÕES DO BANCO DE DADOS
-# ==========================================
-def executar_query(query, params=(), retornar_dados=False):
-    conn = sqlite3.connect(CAMINHO_BANCO)
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    dados = cursor.fetchall() if retornar_dados else None
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY, nome TEXT)")
     conn.commit()
     conn.close()
-    return dados
 
-# Inicialização de Tabelas com colunas solicitadas
-executar_query("CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE, senha TEXT, nivel TEXT)")
-executar_query("CREATE TABLE IF NOT EXISTS palestrantes (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, contato TEXT, casa_origem TEXT, tema TEXT, data_palestra TEXT)")
-executar_query("CREATE TABLE IF NOT EXISTS trabalhadores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, funcao TEXT, telefone TEXT, endereco TEXT, escala TEXT, data_admissao TEXT, status TEXT, data_saida TEXT, termo_pdf TEXT)")
-executar_query("CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, telefone TEXT, curso TEXT, ano_inicio TEXT, data_adm TEXT, data_desligamento TEXT, status TEXT)")
-executar_query("CREATE TABLE IF NOT EXISTS presenca_alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, aluno_id INTEGER, data_aula TEXT, tema_estudado TEXT, status TEXT)")
+init_db()
 
-# Admin Padrão
-try: executar_query("INSERT INTO usuarios (usuario, senha, nivel) VALUES ('eduardo', '12345', 'admin')")
-except: pass
-
-# ==========================================
-# LOGIN
-# ==========================================
+# 2. LOGIN SIMPLIFICADO
 if 'logado' not in st.session_state: st.session_state.logado = False
 
 if not st.session_state.logado:
-    st.subheader("Login de Acesso")
-    u = st.text_input("Usuário").strip().lower()
-    s = st.text_input("Senha", type="password")
+    st.title("🔐 Acesso ao Sistema")
+    user = st.text_input("Usuário")
+    pwd = st.text_input("Senha", type="password")
     if st.button("Entrar"):
-        res = executar_query("SELECT nivel FROM usuarios WHERE usuario=? AND senha=?", (u, s), True)
-        if res:
-            st.session_state.logado = True; st.session_state.usuario = u; st.session_state.nivel = res[0][0]
+        if user == "eduardo" and pwd == "12345":
+            st.session_state.logado = True
             st.rerun()
+        else:
+            st.error("Login ou Senha incorretos")
 else:
-    with st.sidebar:
-        st.markdown(f"👤 {st.session_state.usuario.capitalize()}")
-        aba = st.radio("Módulo:", ["🎙️ Palestrantes", "👥 Trabalhadores", "🎓 Alunos / Faltas", "⚙️ Gerenciar Usuários"])
-        if st.button("Sair"): st.session_state.logado = False; st.rerun()
+    # 3. MÓDULO DE ALUNOS (TESTE DE FUNCIONAMENTO)
+    st.title("🎓 Gestão de Alunos")
+    
+    # Cadastro
+    nome_novo = st.text_input("Nome do Aluno")
+    if st.button("Adicionar Aluno"):
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("INSERT INTO alunos (nome) VALUES (?)", (nome_novo,))
+        conn.commit()
+        conn.close()
+        st.rerun()
 
-    # ALUNOS (Com novas colunas e botão de exclusão)
-    if "🎓 Alunos" in aba:
-        st.title("🎓 Gestão de Alunos")
-        with st.expander("Matricular Novo Aluno"):
-            n = st.text_input("Nome"); c = st.text_input("Curso"); ano = st.text_input("Ano Início")
-            adm = st.date_input("Data Admissão"); sai = st.date_input("Data Desligamento", value=None)
-            if st.button("Salvar"):
-                executar_query("INSERT INTO alunos (nome, curso, ano_inicio, data_adm, data_desligamento, status) VALUES (?,?,?,?,?, 'Ativo')", (n, c, ano, str(adm), str(sai)))
-                st.rerun()
+    # Listagem com Exclusão (A parte que estava travando)
+    st.divider()
+    conn = sqlite3.connect(DB_PATH)
+    alunos = conn.execute("SELECT id, nome FROM alunos").fetchall()
+    conn.close()
 
-        st.subheader("Lista de Alunos")
-        for id_a, nome in executar_query("SELECT id, nome FROM alunos", retornar_dados=True):
-            col1, col2 = st.columns([4, 1])
-            col1.write(f"👤 {nome}")
-            if col2.button("🗑️ Excluir", key=f"del_{id_a}"):
-                executar_query("DELETE FROM alunos WHERE id=?", (id_a,))
-                st.rerun()
-
-    # TRABALHADORES
-    elif "👥 Trabalhadores" in aba:
-        st.title("👥 Trabalhadores")
-        with st.expander("Cadastrar"):
-            n = st.text_input("Nome"); f = st.text_input("Função"); end = st.text_input("Endereço")
-            if st.button("Cadastrar"):
-                executar_query("INSERT INTO trabalhadores (nome, funcao, endereco, status) VALUES (?,?,?, 'Ativo')", (n, f, end))
-                st.rerun()
-        for id_t, nome, func in executar_query("SELECT id, nome, funcao FROM trabalhadores", retornar_dados=True):
-            st.write(f"**{nome}** - {func}")
-
-    # PALESTRANTES
-    elif "🎙️ Palestrantes" in aba:
-        st.title("🎙️ Palestrantes")
-        # (Sua lógica original aqui)
+    for id_aluno, nome in alunos:
+        col1, col2 = st.columns([3, 1])
+        col1.write(f"👤 {nome}")
+        if col2.button("🗑️ Excluir", key=f"del_{id_aluno}"):
+            conn = sqlite3.connect(DB_PATH)
+            conn.execute("DELETE FROM alunos WHERE id = ?", (id_aluno,))
+            conn.commit()
+            conn.close()
+            st.rerun()
+            
+    if st.button("Sair"):
+        st.session_state.logado = False
+        st.rerun()
